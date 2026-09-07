@@ -4,16 +4,98 @@ import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { loader } from "@monaco-editor/react";
 import * as monacoNs from "monaco-editor";
+import { toError } from "@/utils/toError";
 
-// Bundle Monaco locally (no CDN needed) so the game works offline. Next.js
-// emits the editor worker as its own chunk via the new URL(...) pattern.
+// Bundle Monaco locally (no CDN needed) so the game works offline. Next/webpack
+// bundles the worker entry in ../workers/editorWorker.js into a single
+// self-contained worker chunk, and every Monaco worker label is routed to it.
 if (typeof window !== "undefined") {
-  const editorWorkerUrl = new URL(
-    "monaco-editor/esm/vs/editor/editor.worker",
-    import.meta.url,
-  );
-  (window as unknown as { MonacoEnvironment?: { getWorker: () => Worker } }).MonacoEnvironment = {
-    getWorker: () => new Worker(editorWorkerUrl, { type: "module" }),
+  /**
+   * Create the Monaco editor worker, guarding against raw DOM events.
+   *
+   * NOTE: the `new Worker(new URL("../workers/editorWorker.js", import.meta.url),
+   * { type: "module" })` call MUST stay a single literal expression. Webpack's
+   * parser only treats that exact shape as a *worker* to bundle; assigning the
+   * URL to a variable first makes it downgrade the file to a plain asset whose
+   * bare imports do not resolve at runtime. The returned worker is wrapped in a
+   * Proxy so that, should the worker ever fail to load, Monaco receives a real
+   * `Error` instead of a raw DOM event (which its error handler would otherwise
+   * rethrow as the cryptic "[object Event]").
+   */
+  function protectMonacoWorker(): Worker {
+    const worker = new Worker(
+      new URL("../workers/editorWorker.js", import.meta.url),
+      { type: "module" },
+    );
+    const rawAddEventListener = worker.addEventListener.bind(worker);
+    const rawRemoveEventListener = worker.removeEventListener.bind(worker);
+    const errorListeners = new Set<EventListener>();
+
+    worker.addEventListener("error", (event) => {
+      const normalized = toError(
+        event,
+        "Monaco web worker failed to load",
+      ) as unknown as Event;
+      for (const listener of errorListeners) {
+        try {
+          listener.call(worker, normalized);
+        } catch {
+          // A listener throwing must not prevent the remaining ones running.
+        }
+      }
+    });
+
+    return new Proxy(worker, {
+      get(target, prop) {
+        if (prop === "addEventListener") {
+          return (
+            type: string,
+            listener: EventListener | null,
+            options?: boolean | AddEventListenerOptions,
+          ) => {
+            if (type === "error") {
+              if (listener) errorListeners.add(listener);
+              return;
+            }
+            return rawAddEventListener(
+              type,
+              listener as EventListener,
+              options,
+            );
+          };
+        }
+        if (prop === "removeEventListener") {
+          return (
+            type: string,
+            listener: EventListener | null,
+            options?: boolean | EventListenerOptions,
+          ) => {
+            if (type === "error") {
+              if (listener) errorListeners.delete(listener);
+              return;
+            }
+            return rawRemoveEventListener(type, listener as EventListener, options);
+          };
+        }
+        // Use the raw worker as the receiver so WebIDL accessors (e.g. the
+        // onmessage / onmessageerror event-handler attributes) pass their
+        // brand check instead of throwing "Illegal invocation" against the
+        // Proxy.
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+      set(target, prop, value) {
+        return Reflect.set(target, prop, value, target);
+      },
+    });
+  }
+
+  (window as unknown as {
+    MonacoEnvironment?: {
+      getWorker: (moduleId: string, label: string) => Worker;
+    };
+  }).MonacoEnvironment = {
+    getWorker: (_moduleId: string, _label: string) => protectMonacoWorker(),
   };
   loader.config({ monaco: monacoNs });
 }
