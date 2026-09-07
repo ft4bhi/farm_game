@@ -13,6 +13,7 @@
   --info: #6ec1e4;
   --mono: "SFMono-Regular", ui-monospace, "Cascadia Code", Menlo, Consolas,
     "Liberation Mono", monospace;
+  --handle-w: 14px;
   height: 100%;
 }
 
@@ -34,6 +35,21 @@ body {
   overflow: hidden;
 }
 
+/* While any resize handle is being dragged, stop text selection and keep a
+   stable cursor so the grid doesn't flicker beneath the pointer. */
+body.resize-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.resize-dragging-vertical {
+  cursor: col-resize;
+}
+
+body.resize-dragging-horizontal {
+  cursor: row-resize;
+}
+
 button {
   font: inherit;
   cursor: pointer;
@@ -47,9 +63,12 @@ select {
 
 .farm-app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) var(--handle-w) var(--console-height, 220px);
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .farm-topbar {
@@ -61,6 +80,7 @@ select {
   border-bottom: 1px solid var(--border);
   position: relative;
   z-index: 5;
+  flex-wrap: wrap;
 }
 
 .farm-topbar .brand {
@@ -78,50 +98,112 @@ select {
   font-size: 18px;
 }
 
-.farm-main {
+/* ---------------------------------------------------------------- workspace */
+
+.farm-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 40%);
-  gap: 12px;
-  padding: 12px;
+  grid-template-columns: minmax(360px, 1fr) var(--handle-w) max(320px, var(--sidebar-width, 38vw));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+  padding: 12px 12px 0;
 }
 
-.farm-col {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
+.farm-pane {
+  position: relative;
   min-width: 0;
-}
-
-.farm-canvas-card {
-  flex: 1;
   min-height: 0;
+  overflow: hidden;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
-  position: relative;
 }
 
-.farm-canvas-card canvas {
+.farm-pane canvas {
   display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
 
-.farm-console-card {
+/* Right sidebar: editor (top) / handle / challenges+info (bottom). */
+.farm-side-pane {
+  display: grid;
+  grid-template-rows: minmax(0, var(--editor-height, 300px)) var(--handle-w) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  height: 200px;
 }
 
-.farm-editor-card {
+.editor-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-host {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.monaco-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-fallback {
+  width: 100%;
+  height: 100%;
+  background: #161f17;
+  color: #d8e5d4;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Lower content is the only scroll owner on this side of the IDE. */
+.lower-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+}
+
+.content-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.content-section .content-body {
+  padding: 4px 12px 12px;
+}
+
+/* ---------------------------------------------------------------- execution console */
+
+.farm-console-card {
+  margin: 0 12px 12px;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -130,6 +212,65 @@ select {
   border-radius: 12px;
   overflow: hidden;
 }
+
+.console-handle {
+  margin: 0 12px;
+}
+
+/* ---------------------------------------------------------------- resize handles */
+
+.resize-handle {
+  position: relative;
+  z-index: 4;
+  touch-action: none;
+  user-select: none;
+  background: transparent;
+  outline: none;
+}
+
+.resize-handle.vertical {
+  cursor: col-resize;
+}
+
+.resize-handle.horizontal {
+  cursor: row-resize;
+}
+
+.resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--border);
+  border-radius: 3px;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.resize-handle.vertical::before {
+  width: 4px;
+  height: 44px;
+}
+
+.resize-handle.horizontal::before {
+  height: 4px;
+  width: 48px;
+}
+
+.resize-handle:hover::before,
+.resize-handle.resizing::before,
+.resize-handle:focus-visible::before {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(255, 176, 32, 0.45);
+}
+
+.resize-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- panel chrome */
 
 .farm-panel-title {
   display: flex;
@@ -210,28 +351,6 @@ select {
   color: var(--text-dim);
   white-space: nowrap;
   font-family: var(--mono);
-}
-
-/* ---------------------------------------------------------------- editor */
-
-.editor-host {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
-.editor-fallback {
-  width: 100%;
-  height: 100%;
-  background: #161f17;
-  color: #d8e5d4;
-  border: none;
-  outline: none;
-  resize: none;
-  padding: 12px;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 /* ---------------------------------------------------------------- controls */
@@ -345,24 +464,20 @@ select {
   color: var(--warn);
 }
 
-/* ---------------------------------------------------------------- garden, challenges */
+/* ---------------------------------------------------------------- challenges */
 
 .garden {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  padding: 12px;
-  overflow-y: auto;
+  min-width: 0;
   min-height: 0;
 }
 
-.panel {
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+.garden > div {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-width: 0;
 }
 
 .challenge {
@@ -382,30 +497,6 @@ select {
 .challenge-current {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(255, 176, 32, 0.25);
-}
-
-.farm-side {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-}
-
-/* ------------------------------------------------- editor decorations */
-
-.ff-current-line {
-  background: rgba(95, 208, 255, 0.12);
-}
-
-.ff-error-line {
-  background: rgba(255, 107, 107, 0.14);
-}
-
-.ff-glyph-error {
-  background: #ff6b6b;
-  border-radius: 2px;
 }
 
 .challenge .ch-title {
@@ -428,6 +519,7 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .ch-progress {
@@ -499,46 +591,168 @@ select {
   color: var(--accent);
 }
 
+/* ------------------------------------------------- editor decorations */
+
+.ff-current-line {
+  background: rgba(95, 208, 255, 0.12);
+}
+
+.ff-error-line {
+  background: rgba(255, 107, 107, 0.14);
+}
+
+.ff-glyph-error {
+  background: #ff6b6b;
+  border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------- scrollbars */
+
+.lower-content::-webkit-scrollbar,
+.console-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.lower-content::-webkit-scrollbar-thumb,
+.console-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+}
+
+.lower-content::-webkit-scrollbar-thumb:hover,
+.console-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-dim);
+}
+
+.lower-content::-webkit-scrollbar-track,
+.console-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------- tablet */
+
+/* NOTE: at tablet the resize handles are display:none, so grid auto-placement
+   skips them entirely. The explicit rows below therefore must NOT include a
+   placeholder "handle" row (a display:none grid item would otherwise shift its
+   siblings onto the wrong tracks). Three tracks: topbar / workspace / console. */
+
+@media (min-width: 700px) and (max-width: 1099px) {
+  .farm-app {
+    grid-template-rows: auto minmax(0, 1fr) var(--console-height, 220px);
+  }
+
+  .console-handle {
+    display: none;
+  }
+
+  .farm-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .farm-split-handle {
+    display: none;
+  }
+
+  .farm-side-pane {
+    grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  }
+
+  .editor-split-handle {
+    display: none;
+  }
+
+  .hud-ops {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------- mobile */
 
-@media (max-width: 860px) {
+@media (max-width: 699px) {
+  html,
   body {
-    overflow: auto;
+    overflow-x: hidden;
+  }
+
+  body {
+    overflow-y: auto;
   }
 
   .farm-app {
-    grid-template-rows: auto auto auto auto;
     height: auto;
-    min-height: 100vh;
-  }
-
-  .farm-main {
-    grid-template-columns: 1fr;
+    min-height: 100dvh;
+    width: 100%;
+    grid-template-rows: auto;
     overflow: visible;
-    height: auto;
   }
 
-  .farm-canvas-card {
-    min-height: 55vh;
-    height: 0;
-    flex: none;
+  .farm-topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
   }
 
-  .farm-editor-card {
-    min-height: 46vh;
-    height: 0;
-  }
-
-  .farm-console-card {
-    height: 30vh;
+  .hud-ops {
+    display: none;
   }
 
   .hud-status {
     margin-left: 0;
   }
 
-  .farm-topbar {
-    flex-wrap: wrap;
-    gap: 8px;
+  .farm-workspace {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    overflow: visible;
+  }
+
+  .farm-pane {
+    height: 42vh;
+    min-height: 240px;
+  }
+
+  .farm-split-handle {
+    display: none;
+  }
+
+  .farm-side-pane {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    overflow: visible;
+  }
+
+  .editor-section {
+    height: 42vh;
+    min-height: 240px;
+  }
+
+  .editor-split-handle {
+    display: none;
+  }
+
+  .console-handle {
+    display: none;
+  }
+
+  .lower-content {
+    overflow: visible;
+    max-height: none;
+    padding: 0;
+  }
+
+  .content-section .content-body {
+    padding: 4px 12px 10px;
+  }
+
+  .farm-console-card {
+    margin: 10px;
+    height: 30vh;
+    min-height: 170px;
   }
 }

@@ -198,6 +198,8 @@ export default function MonacoField({
   errorMessage,
 }: CodeMirrorStyleProps) {
   const editorRef = useRef<monacoNs.editor.IStandaloneCodeEditor | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const layoutObserver = useRef<ResizeObserver | null>(null);
   const [ready, setReady] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const decorationIds = useRef<string[]>([]);
@@ -208,6 +210,17 @@ export default function MonacoField({
     const timer = setTimeout(() => setTimedOut(true), 15000);
     return () => clearTimeout(timer);
   }, [ready]);
+
+  // The editor container is resized by the layout refactor (drag handles,
+  // responsive breakpoints), so explicitly relayout Monaco instead of relying
+  // only on its internal observer. The instance stays alive across resizes.
+  useEffect(() => {
+    return () => {
+      layoutObserver.current?.disconnect();
+      layoutObserver.current = null;
+      editorRef.current = null;
+    };
+  }, []);
 
   // Current-line highlight + error markers (execution feedback).
   useEffect(() => {
@@ -257,48 +270,57 @@ export default function MonacoField({
 
   if (timedOut) {
     return (
-      <textarea
-        className="editor-fallback"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-        aria-label="Program editor"
-      />
+      <div className="monaco-host" ref={hostRef}>
+        <textarea
+          className="editor-fallback"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          aria-label="Program editor"
+        />
+      </div>
     );
   }
 
   return (
-    <Editor
-      height="100%"
-      defaultLanguage="python"
-      theme="vs-dark"
-      value={value}
-      onChange={(next) => onChange(next ?? "")}
-      onMount={(editor, monaco) => {
-        editorRef.current = editor;
-        registerCompletions(monaco);
-        setReady(true);
-        if (firstRender.current) {
-          firstRender.current = false;
-        }
-        requestAnimationFrame(() => editor.layout());
-      }}
-      options={{
-        minimap: { enabled: false },
-        fontSize: 13,
-        fontFamily:
-          'ui-monospace, "Cascadia Code", Menlo, Consolas, monospace',
-        wordWrap: "on",
-        scrollBeyondLastLine: false,
-        tabSize: 4,
-        insertSpaces: true,
-        automaticLayout: true,
-        lineNumbers: "on",
-        renderLineHighlight: "all",
-        glyphMargin: true,
-        scrollbar: { verticalScrollbarSize: 8 },
-      }}
-      loading={<div className="editor-fallback" />}
-    />
+    <div className="monaco-host" ref={hostRef}>
+      <Editor
+        height="100%"
+        defaultLanguage="python"
+        theme="vs-dark"
+        value={value}
+        onChange={(next) => onChange(next ?? "")}
+        onMount={(editor, monaco) => {
+          editorRef.current = editor;
+          registerCompletions(monaco);
+          setReady(true);
+          if (firstRender.current) {
+            firstRender.current = false;
+          }
+          requestAnimationFrame(() => editor.layout());
+          const host = hostRef.current;
+          if (host && typeof ResizeObserver !== "undefined") {
+            layoutObserver.current = new ResizeObserver(() => editor.layout());
+            layoutObserver.current.observe(host);
+          }
+        }}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 13,
+          fontFamily:
+            'ui-monospace, "Cascadia Code", Menlo, Consolas, monospace',
+          wordWrap: "on",
+          scrollBeyondLastLine: false,
+          tabSize: 4,
+          insertSpaces: true,
+          automaticLayout: true,
+          lineNumbers: "on",
+          renderLineHighlight: "all",
+          glyphMargin: true,
+          scrollbar: { verticalScrollbarSize: 8 },
+        }}
+        loading={<div className="editor-fallback" />}
+      />
+    </div>
   );
 }
