@@ -9,7 +9,9 @@ export type TickCategory =
   | "water"
   | "harvest"
   | "call"
-  | "loop";
+  | "loop"
+  | "till"
+  | "clear";
 
 /**
  * Tracks the deterministic cost of a program run. Every action consumes a

@@ -14,6 +14,8 @@ export interface ActionCosts {
   harvest: number;
   call: number;
   loop: number;
+  till: number;
+  clear: number;
 }
 
 export const ACTION_COSTS: ActionCosts = {
@@ -26,6 +28,8 @@ export const ACTION_COSTS: ActionCosts = {
   harvest: 8,
   call: 1,
   loop: 1,
+  till: 6,
+  clear: 10,
 };
 
 /** Milliseconds to play one dramatic action at each speed tier. */

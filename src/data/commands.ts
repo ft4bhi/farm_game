@@ -50,6 +50,23 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     args: [],
   },
   {
+    name: "till",
+    kind: "action",
+    arity: 0,
+    feature: "till",
+    description: "Till the cleared ground below the FieldBot into farmable Soil.",
+    args: [],
+  },
+  {
+    name: "clear",
+    kind: "action",
+    arity: 0,
+    feature: "rock_cut",
+    description:
+      "Use the RockCutter to clear the rock on the tile the FieldBot faces.",
+    args: [],
+  },
+  {
     name: "can_harvest",
     kind: "sensor",
     arity: 0,

@@ -83,3 +83,20 @@ export const TILE_CONSTANTS: Record<string, TileType> = {
   Rock: TileType.ROCK,
   Tree: TileType.TREE,
 };
+
+/**
+ * What each tile type can directly become through gameplay actions.
+ * This keeps the farming-state rules data-driven: tiles.ts says which
+ * transformations are legal, the simulation enforces them.
+ */
+export const TILE_TYPES_BY_STATE: Record<TileType, TileType[]> = {
+  // Cleared ground can be tilled into farmable Soil.
+  [TileType.GRASS]: [TileType.SOIL],
+  // Already farmable.
+  [TileType.SOIL]: [],
+  [TileType.WATER]: [],
+  // Obstacles are removed by machines; their new state is created by the
+  // action (a cleared rock becomes Grass), so no direct transitions.
+  [TileType.ROCK]: [],
+  [TileType.TREE]: [],
+};

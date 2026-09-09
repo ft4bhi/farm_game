@@ -126,6 +126,8 @@ function registerCompletions(monaco: typeof monacoNs): void {
     { display: "plant", kind: "Function", detail: "plant(crop)", insertText: "plant(${1:Carrot})" },
     { display: "water", kind: "Function", detail: "water()", insertText: "water()" },
     { display: "harvest", kind: "Function", detail: "harvest()", insertText: "harvest()" },
+    { display: "till", kind: "Function", detail: "till()", insertText: "till()" },
+    { display: "clear", kind: "Function", detail: "clear()", insertText: "clear()" },
     { display: "can_harvest", kind: "Function", detail: "can_harvest()", insertText: "can_harvest()" },
     { display: "get_ground_type", kind: "Function", detail: "get_ground_type()", insertText: "get_ground_type()" },
     { display: "get_entity_type", kind: "Function", detail: "get_entity_type()", insertText: "get_entity_type()" },
@@ -300,7 +302,15 @@ export default function MonacoField({
           requestAnimationFrame(() => editor.layout());
           const host = hostRef.current;
           if (host && typeof ResizeObserver !== "undefined") {
-            layoutObserver.current = new ResizeObserver(() => editor.layout());
+            layoutObserver.current = new ResizeObserver(() => {
+              // Skip layout passes while a panel is hidden (display:none makes
+              // the host report 0×0); Monaco misbehaves when asked to lay out
+              // to nothing, and it relayouts automatically the moment it is
+              // visible again.
+              if (host.offsetWidth > 0 && host.offsetHeight > 0) {
+                editor.layout();
+              }
+            });
             layoutObserver.current.observe(host);
           }
         }}

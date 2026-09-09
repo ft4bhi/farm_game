@@ -45,7 +45,10 @@ export function describeFeature(feature: string): string {
     case "plant":
     case "water":
     case "harvest":
+    case "till":
       return "Basic Farming";
+    case "rock_cut":
+      return "RockCutter";
     case "sensor":
       return "Field Sensors";
     case "loop":

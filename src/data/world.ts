@@ -5,29 +5,36 @@ import { TileType } from "@/data/tiles";
  * read and edit. Larger/other worlds are created by editing this data, not by
  * changing engine code.
  *
- * Legend:
- *   T = Tree   R = Rock   ~ = Water   , = Grass   # = Soil
+ * The whole interior is a coherent working grid. Every cell is meaningful:
+ *   . = cleared ground (walkable, can be tilled into soil)
+ *   # = soil (farmable — ready to plant)
+ *   R = rock   (blocked; needs the RockCutter)
+ *   T = tree   (blocked; decorative) 
+ *   ~ = water  (blocked)
+ *
+ * Obstacles double as gameplay objectives: clear a rock with the RockCutter
+ * to turn it into cleared ground, till it, then plant.
  */
 const MAP_ROWS: string[] = [
-  "TTTTTTTTTTTTTTTT",
-  "TR,~~,,,,,,,,TRT",
-  "T,,~,,,,T,,,,,,T",
-  "T,R~,,,,R,,,,,,T",
-  "T,,,,,,,,,,R,,,T",
-  "T,,,########,,,T",
-  "T,,,########,T,T",
-  "T,,,########,R,T",
-  "T,,,########,R,T",
-  "T,,,########,,,T",
-  "T,,,,,,R,,,,,,,T",
-  "TTTTTTTTTTTTTTTT",
+  "T..........R...T",
+  ".........~~~....",
+  ".T.......~~~...R",
+  ".....####.......",
+  "......##...T....",
+  ".T.##..#R##.....",
+  "T..##..R.......T",
+  "..........R.....",
+  ".R#####.........",
+  "....#........T..",
+  "R...............",
+  "T..TRR.......R.T",
 ];
 
 const CHAR_TO_TILE: Record<string, TileType> = {
   T: TileType.TREE,
   R: TileType.ROCK,
   "~": TileType.WATER,
-  ",": TileType.GRASS,
+  ".": TileType.GRASS,
   "#": TileType.SOIL,
 };
 

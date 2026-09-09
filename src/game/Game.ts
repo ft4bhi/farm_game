@@ -134,6 +134,22 @@ export class Game {
         startedAt: performance.now(),
       });
     });
+    this.bus.on("tile.tilled", ({ x, y }) => {
+      this.renderer.effectsRenderer.add({
+        kind: "till",
+        tx: x,
+        ty: y,
+        startedAt: performance.now(),
+      });
+    });
+    this.bus.on("obstacle.cleared", ({ x, y }) => {
+      this.renderer.effectsRenderer.add({
+        kind: "clear",
+        tx: x,
+        ty: y,
+        startedAt: performance.now(),
+      });
+    });
 
     this.bus.on("resource.changed", () => this.scheduleAutosave());
     this.bus.on("challenge.completed", () => this.scheduleAutosave());

@@ -6,7 +6,8 @@ import type { TickSystem, TickCategory } from "@/engine/TickSystem";
 import { CropSystem, type CropStatsSink } from "@/engine/CropSystem";
 import { GameActionError } from "@/engine/GameActionError";
 import { CROP_DEFINITIONS } from "@/data/crops";
-import { TILE_DEFINITIONS, type TileType } from "@/data/tiles";
+import { TILE_DEFINITIONS, TileType } from "@/data/tiles";
+import { isClearTile } from "@/game/Tile";
 import type { EventBus } from "@/events/Bus";
 import type { ProgressionStats } from "@/game/GameState";
 
@@ -60,6 +61,10 @@ export class ActionSystem {
         return this.water();
       case "harvest":
         return this.harvest();
+      case "till":
+        return this.till();
+      case "clear":
+        return this.clear();
       case "can_harvest":
         return this.sensor(() => this.canHarvest() as EngineArg, "can_harvest");
       case "get_ground_type":
@@ -174,6 +179,70 @@ export class ActionSystem {
       message: result.message,
       ticks: this.ticks.add("harvest"),
       category: "harvest",
+    };
+  }
+
+  /**
+   * Till the cleared ground the FieldBot stands on into farmable Soil.
+   * Transforms "cleared" cells (Grass with no crop) into Soil; anything else
+   * is rejected.
+   */
+  private till(): ActionResult {
+    const { world, worker, stats } = this.cmd;
+    const tile = world.getTile(worker.x, worker.y);
+
+    if (!isClearTile(tile)) {
+      throw new GameActionError(
+        `Cannot till here.\nThe FieldBot must be standing on cleared ground.`,
+      );
+    }
+
+    world.grid.set(worker.x, worker.y, { type: TileType.SOIL, crop: null });
+    stats.cellsTilled += 1;
+    this.bus.emit("tile.tilled", { x: worker.x, y: worker.y });
+    return {
+      ok: true,
+      message: "Tilled the cleared ground into Soil",
+      ticks: this.ticks.add("till"),
+      category: "till",
+    };
+  }
+
+  /**
+   * Clear the obstacle the FieldBot faces using the RockCutter. Rocks turn
+   * into cleared ground; trees hint at the (future) TreeHarvester.
+   */
+  private clear(): ActionResult {
+    const { world, worker, stats } = this.cmd;
+    const target = world.targetPosition(worker.x, worker.y, worker.facing);
+
+    if (!world.inBounds(target.x, target.y)) {
+      throw new GameActionError(
+        `Cannot clear.\nThere is nothing in front of the FieldBot.`,
+      );
+    }
+
+    const tile = world.getTile(target.x, target.y);
+
+    if (tile.type === TileType.TREE) {
+      throw new GameActionError(
+        "Cannot clear this obstacle.\nA TreeHarvester is needed for trees (coming soon).",
+      );
+    }
+    if (tile.type !== TileType.ROCK) {
+      throw new GameActionError(
+        `Cannot clear.\nThere is no rock in front of the FieldBot (a ${TILE_DEFINITIONS[tile.type].name} is there).`,
+      );
+    }
+
+    world.grid.set(target.x, target.y, { type: TileType.GRASS, crop: null });
+    stats.rocksCleared += 1;
+    this.bus.emit("obstacle.cleared", { x: target.x, y: target.y, obstacle: "rock" });
+    return {
+      ok: true,
+      message: "Cleared the rock",
+      ticks: this.ticks.add("clear"),
+      category: "clear",
     };
   }
 

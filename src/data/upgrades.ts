@@ -19,10 +19,19 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "basic_farming",
     title: "Basic Farming",
-    description: "The FieldBot can move, plant seeds, water crops and harvest.",
-    features: ["move", "plant", "water", "harvest"],
+    description: "The FieldBot can move, plant seeds, water crops, harvest and till cleared ground.",
+    features: ["move", "plant", "water", "harvest", "till"],
     trigger: null,
     order: 0,
+  },
+  {
+    id: "rock_cutter",
+    title: "RockCutter",
+    description:
+      "Bolt a RockCutter to the front of the FieldBot so it can clear rocks and expand the field.",
+    features: ["rock_cut"],
+    trigger: { type: "challenge", challengeId: "first_crop" },
+    order: 1,
   },
   {
     id: "sensors",
@@ -58,4 +67,4 @@ export function getUpgrade(id: string): UpgradeDefinition | undefined {
 }
 
 /** Features that are always available without any upgrade. */
-export const BASE_FEATURES: string[] = ["move", "plant", "water", "harvest"];
+export const BASE_FEATURES: string[] = ["move", "plant", "water", "harvest", "till"];

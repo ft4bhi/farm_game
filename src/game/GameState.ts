@@ -11,6 +11,10 @@ export interface ProgressionStats {
   totalWatered: number;
   programRuns: number;
   coinsEarned: number;
+  /** Rocks cleared by the RockCutter. */
+  rocksCleared: number;
+  /** Cleared-ground cells tilled into Soil by the FieldBot. */
+  cellsTilled: number;
 }
 
 export interface ProgressionState {
@@ -72,6 +76,8 @@ export function createGameState(): GameState {
         totalWatered: 0,
         programRuns: 0,
         coinsEarned: 0,
+        rocksCleared: 0,
+        cellsTilled: 0,
       },
     },
   };
@@ -118,6 +124,8 @@ export function deserializeState(
     totalWatered: 0,
     programRuns: 0,
     coinsEarned: 0,
+    rocksCleared: 0,
+    cellsTilled: 0,
     ...(state.progression?.stats ?? {}),
   };
 

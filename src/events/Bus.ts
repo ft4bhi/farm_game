@@ -6,6 +6,8 @@ export interface GameEventMap {
   "crop.planted": { x: number; y: number; cropId: string };
   "crop.watered": { x: number; y: number; cropId: string; stage: string };
   "crop.harvested": { x: number; y: number; cropId: string; rewards: Record<string, number> };
+  "tile.tilled": { x: number; y: number };
+  "obstacle.cleared": { x: number; y: number; obstacle: string };
   "resource.changed": Record<string, number>;
   "console.message": { level: "system" | "info" | "ok" | "error" | "warn"; text: string; line?: number | null };
   "program.line": { line: number };

@@ -1,5 +1,6 @@
 import {
   CHALLENGE_DEFINITIONS,
+  type ChallengeCondition,
   type ChallengeDefinition,
 } from "@/data/challenges";
 import type { Simulation } from "@/engine/Simulation";
@@ -84,21 +85,7 @@ export class ChallengeManager {
 
   private view(def: ChallengeDefinition): ChallengeView {
     const completed = this.isCompleted(def);
-    let progressDone = 0;
-    let progressTotal = 0;
-    switch (def.condition.type) {
-      case "harvest_total":
-        progressDone = Math.min(
-          this.simulation.stats().totalHarvested,
-          def.condition.amount,
-        );
-        progressTotal = def.condition.amount;
-        break;
-      case "harvest_loop_run":
-        progressTotal = def.condition.amount;
-        progressDone = completed ? def.condition.amount : 0;
-        break;
-    }
+    const [progressDone, progressTotal] = this.progressOf(def.condition, completed);
     return {
       id: def.id,
       title: def.title,
@@ -113,11 +100,59 @@ export class ChallengeManager {
   }
 
   private conditionMet(def: ChallengeDefinition, report: RunReport): boolean {
-    switch (def.condition.type) {
+    return this.conditionSatisfied(def.condition, report);
+  }
+
+  /** Cumulative conditions never regress; only the loop requirement is per-run. */
+  private conditionSatisfied(condition: ChallengeCondition, report: RunReport): boolean {
+    switch (condition.type) {
       case "harvest_total":
-        return this.simulation.stats().totalHarvested >= def.condition.amount;
+        return this.simulation.stats().totalHarvested >= condition.amount;
+      case "clear_obstacles":
+        return this.simulation.stats().rocksCleared >= condition.amount;
       case "harvest_loop_run":
-        return report.usedLoop && report.harvestsInRun >= def.condition.amount;
+        return report.usedLoop && report.harvestsInRun >= condition.amount;
+      case "and": {
+        if (condition.requirements.length === 0) return true;
+        return condition.requirements.every((req) =>
+          this.conditionSatisfied(req, report),
+        );
+      }
+    }
+  }
+
+  /** Progress values for the HUD: an "and" aggregates its requirements. */
+  private progressOf(
+    condition: ChallengeCondition,
+    completed: boolean,
+  ): [number, number] {
+    switch (condition.type) {
+      case "harvest_total": {
+        const done = Math.min(
+          this.simulation.stats().totalHarvested,
+          condition.amount,
+        );
+        return [done, condition.amount];
+      }
+      case "clear_obstacles": {
+        const done = Math.min(
+          this.simulation.stats().rocksCleared,
+          condition.amount,
+        );
+        return [done, condition.amount];
+      }
+      case "harvest_loop_run":
+        return [completed ? condition.amount : 0, condition.amount];
+      case "and": {
+        let done = 0;
+        let total = 0;
+        for (const req of condition.requirements) {
+          const [d, t] = this.progressOf(req, completed);
+          done += d;
+          total += t;
+        }
+        return [Math.min(done, total), total];
+      }
     }
   }
 
